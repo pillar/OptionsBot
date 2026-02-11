@@ -11,9 +11,10 @@
 - [x] 实现 `validate_net_credit`：考虑佣金与滑点的信用验证逻辑。
 
 ## Phase 3：策略逻辑补完 [x]
-- [x] 完善 `manage_goog_covered_call`：支持自动识别持仓量、Delta 监控与自动 Rolling。
-- [x] 实现 `manage_spx_spread`：基于 0DTE/1DTE 的价差策略构建逻辑。
-- [x] 实现 `check_and_roll_call`：Delta > 0.45 或 DTE < 1 时强制滚动。
+- [x] 完善 `manage_covered_calls`：支持多标的候选池，自动识别持仓量、Delta 监控与自动 Rolling。
+- [x] 实现 `manage_index_spreads`：支持多指数候选池，基于 0DTE/1DTE 的价差策略构建逻辑。
+- [x] 实现 `check_and_roll_call`：Delta > 0.45 或 DTE < 1 时强制滚动，支持动态 symbol。
+- [x] 引入 `target_list.py`：支持自行维护股票与指数池。
 
 ## Phase 4：风控与监控 [x]
 - [x] 编写 `RiskMonitor`：基于 Net Liquidation 计算实时回撤，支持 1% 阈值熔断。

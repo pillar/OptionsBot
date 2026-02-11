@@ -4,6 +4,7 @@
 - **目标**：构建自动化美股期权策略，围绕 GOOGL 备兑看涨 (Covered Call) 和 SPX 认沽价差 (Put Credit Spread) 执行信号、滚动与风控。
 - **关键文件**：
   - `main.py`: AIOptionsMaster 类，负责连接 ib_insync、监控持仓、执行核心策略、滚动逻辑与风险熔断。
+  - `target_list.py`: 可配置的自选池，定义了股票（及其起步股数）和指数标的。
   - `options_lookup.py`: 提炼出的期权搜索逻辑，支持异步批量请求、Greeks 容错和提前退出。
   - `utils.py`: 包含日期处理、交易时间检查与信用校验。
   - `tests/`: 包含针对核心逻辑的单元测试。

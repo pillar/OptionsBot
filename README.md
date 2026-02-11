@@ -20,6 +20,9 @@ Automated weekly options trading system focusing on:
 - Test search logic: `pytest tests/test_search.py`
 - Run unit tests: `pytest tests/`
 
+## Configuring Targets
+- Customize `target_list.py` to define your own favorite stock/index pools and minimum holding thresholds; the strategy will pick whichever candidate currently satisfies the criteria.
+
 ## Safety
 - **Daily Drawdown**: 1% (Automatic Emergency Exit)
 - **Net Credit**: All rolls must be profitable after costs.

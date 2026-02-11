@@ -6,6 +6,7 @@ from ib_insync import *
 
 from utils import get_next_friday, is_trading_hours, validate_net_credit
 from options_lookup import find_contract_by_delta, is_contract_liquid
+from target_list import STOCK_CANDIDATES, INDEX_CANDIDATES
 
 # 配置日志 - 增加文件输出以便审计
 logging.basicConfig(
@@ -26,8 +27,6 @@ class AIOptionsMaster:
         self.client_id = client_id
         
         # 策略参数 (严格对齐 CLAUDE.md)
-        self.target_stock = 'GOOG'
-        self.index_symbol = 'SPX'
         self.cc_delta_target = 0.15
         self.pcs_sell_delta = 0.07
         self.pcs_width = 30 # 20-50 点间隔
@@ -36,6 +35,29 @@ class AIOptionsMaster:
         self.max_daily_drawdown = 0.01 # 1% 熔断
         self.initial_nav = None
         self.force_exit_flag = False
+
+    def _select_stock_candidate(self):
+        """从候选池中选择当前持有正股的标的"""
+        positions = self.ib.positions()
+        for candidate in STOCK_CANDIDATES:
+            symbol = candidate['symbol']
+            min_shares = candidate.get('min_shares', 100)
+            stock_pos = next(
+                (p for p in positions if p.contract.symbol == symbol and p.contract.secType == 'STK'),
+                None
+            )
+            if not stock_pos or stock_pos.position < min_shares:
+                continue
+            opt_pos = next(
+                (p for p in positions if p.contract.symbol == symbol and p.contract.secType == 'OPT' and p.contract.right == 'C'),
+                None
+            )
+            return candidate, stock_pos, opt_pos
+        return None, None, None
+
+    def _get_index_candidate(self):
+        """获取当前配置的指数标的"""
+        return INDEX_CANDIDATES[0] if INDEX_CANDIDATES else None
 
     async def connect(self):
         try:
@@ -51,39 +73,34 @@ class AIOptionsMaster:
             logger.error(f"连接失败: {e}")
             sys.exit(1)
 
-    # --- 核心逻辑 1：Google Covered Call ---
-    async def manage_goog_covered_call(self):
+    # --- 核心逻辑 1：多标的备兑收租 (Covered Call) ---
+    async def manage_covered_calls(self):
         if self.force_exit_flag: return
-        logger.info(">>> 扫描 Google 备兑仓位...")
+        logger.info(">>> 检查股票候选池中的 Covered Call 机会...")
         
-        stock = Stock(self.target_stock, 'SMART', 'USD')
-        await self.ib.qualifyContractsAsync(stock)
-        
-        # 持仓审计
-        positions = self.ib.positions()
-        stock_pos = next((p for p in positions if p.contract.symbol == self.target_stock and p.contract.secType == 'STK'), None)
-        opt_pos = next((p for p in positions if p.contract.symbol == self.target_stock and p.contract.secType == 'OPT'), None)
-
-        if not stock_pos or stock_pos.position < 100:
-            logger.warning("正股持仓不足 100 股，跳过。")
+        candidate, stock_pos, opt_pos = self._select_stock_candidate()
+        if not candidate:
+            logger.info("未在候选池中找到满足持仓条件的股票，跳过 Covered Call")
             return
 
-        qty = int(stock_pos.position / 100)
+        symbol = candidate['symbol']
+        stock = Stock(symbol, 'SMART', 'USD')
+        await self.ib.qualifyContractsAsync(stock)
 
-        if not opt_pos:
-            # 寻找下周五到期的 Call
+        qty = int(stock_pos.position / 100)
+        if not opt_pos or abs(opt_pos.position) < 1:
             expiry = get_next_friday(offset_weeks=0)
             contract = await find_contract_by_delta(self.ib, stock, expiry, self.cc_delta_target, 'C')
             if contract:
                 order = MarketOrder('SELL', qty)
-                trade = self.ib.placeOrder(contract, order)
-                logger.info(f"🚀 [OPEN] 开仓 Covered Call: {contract.localSymbol} x {qty}")
+                self.ib.placeOrder(contract, order)
+                logger.info(f"🚀 [OPEN] {symbol} Covered Call: {contract.localSymbol} x {qty}")
         else:
-            # 监控 Rolling 条件
             await self.check_and_roll_call(opt_pos)
 
     async def check_and_roll_call(self, current_pos):
         contract = current_pos.contract
+        symbol = contract.symbol
         [ticker] = await self.ib.reqTickersAsync(contract)
         
         if not ticker.modelGreeks:
@@ -99,7 +116,7 @@ class AIOptionsMaster:
             logger.info(f"⚠️ 触发 Rolling: {contract.localSymbol} (Delta={delta:.2f}, DTE={dte})")
             
             new_expiry = get_next_friday(offset_weeks=1)
-            new_contract = await find_contract_by_delta(self.ib, Stock(self.target_stock, 'SMART'), new_expiry, self.cc_delta_target, 'C')
+            new_contract = await find_contract_by_delta(self.ib, Stock(symbol, 'SMART'), new_expiry, self.cc_delta_target, 'C')
             
             if new_contract:
                 if not await is_contract_liquid(self.ib, new_contract):
@@ -111,50 +128,54 @@ class AIOptionsMaster:
                     # 使用 Bag 组合单减少滑点
                     buy_leg = ComboLeg(conId=contract.conId, ratio=1, action='BUY')
                     sell_leg = ComboLeg(conId=new_contract.conId, ratio=1, action='SELL')
-                    roll_bag = Bag(symbol=self.target_stock, comboLegs=[buy_leg, sell_leg])
+                    roll_bag = Bag(symbol=symbol, comboLegs=[buy_leg, sell_leg])
                     self.ib.placeOrder(roll_bag, MarketOrder('SELL', abs(current_pos.position)))
                     logger.info(f"✅ [ROLL] {contract.localSymbol} -> {new_contract.localSymbol}")
                 else:
                     logger.error("❌ Rolling 失败: Net Credit 验证未通过。")
 
-    # --- 核心逻辑 2：SPX Put Credit Spread ---
-    async def manage_spx_cashflow(self):
+    # --- 核心逻辑 2：指数概率收割 (Put Credit Spread) ---
+    async def manage_index_spreads(self):
         if self.force_exit_flag: return
-        logger.info(">>> 扫描 SPX 现金流...")
-        
-        index = Index(self.index_symbol, 'CBOE', 'USD')
-        await self.ib.qualifyContractsAsync(index)
-        
-        # 检查是否已有 Spread 仓位
-        positions = [p for p in self.ib.positions() if p.contract.symbol == self.index_symbol and p.contract.secType == 'OPT']
-        if positions:
-            logger.info("已有 SPX 仓位，监控中...")
+        candidate = self._get_index_candidate()
+        if not candidate:
+            logger.warning("没有可用的指数候选，跳过 Spread 策略")
             return
 
-        # 寻找 1DTE 合约 (通常选明天或今天)
-        expiry = datetime.now().strftime('%Y%m%d') # 示例选 0DTE
-        
-        sell_side = await find_contract_by_delta(self.ib, index, expiry, self.pcs_sell_delta, 'P')
-        if not sell_side: return
-        if not await is_contract_liquid(self.ib, sell_side):
-            logger.warning('SPX 卖出腿流动性不足，跳过本轮')
+        symbol = candidate['symbol']
+        exchange = candidate.get('exchange', 'CBOE')
+        logger.info(f">>> 扫描 {symbol} 现金流机会...")
+
+        index = Index(symbol, exchange, 'USD')
+        await self.ib.qualifyContractsAsync(index)
+
+        positions = [p for p in self.ib.positions() if p.contract.symbol == symbol and p.contract.secType == 'OPT']
+        if positions:
+            logger.info(f"已有 {symbol} Spread 仓位，监控中...")
             return
-        
+
+        expiry = datetime.now().strftime('%Y%m%d') # 0DTE
+        sell_side = await find_contract_by_delta(self.ib, index, expiry, self.pcs_sell_delta, 'P')
+        if not sell_side:
+            return
+        if not await is_contract_liquid(self.ib, sell_side):
+            logger.warning(f'{symbol} 卖出腿流动性不足，跳过本轮')
+            return
+
         buy_strike = sell_side.strike - self.pcs_width
-        buy_side = Option(self.index_symbol, expiry, buy_strike, 'P', 'CBOE')
+        buy_side = Option(symbol, expiry, buy_strike, 'P', exchange)
         await self.ib.qualifyContractsAsync(buy_side)
         if not await is_contract_liquid(self.ib, buy_side):
-            logger.warning('SPX 买入腿流动性不足，跳过本轮')
+            logger.warning(f'{symbol} 买入腿流动性不足，跳过本轮')
             return
-        
-        # 构建 Combo
+
         legs = [
             ComboLeg(conId=sell_side.conId, ratio=1, action='SELL'),
             ComboLeg(conId=buy_side.conId, ratio=1, action='BUY')
         ]
-        spread_bag = Bag(symbol=self.index_symbol, comboLegs=legs)
+        spread_bag = Bag(symbol=symbol, comboLegs=legs)
         self.ib.placeOrder(spread_bag, MarketOrder('SELL', 1))
-        logger.info(f"🚀 [OPEN] SPX Spread: Sell {sell_side.strike}P / Buy {buy_side.strike}P")
+        logger.info(f"🚀 [OPEN] {symbol} Spread: Sell {sell_side.strike}P / Buy {buy_side.strike}P")
 
     # --- 风控 ---
     async def risk_monitor(self):
@@ -187,8 +208,8 @@ class AIOptionsMaster:
             try:
                 if is_trading_hours():
                     await self.risk_monitor()
-                    await self.manage_goog_covered_call()
-                    await self.manage_spx_cashflow()
+                    await self.manage_covered_calls()
+                    await self.manage_index_spreads()
                 else:
                     logger.info("非交易时段，休眠中...")
                 
