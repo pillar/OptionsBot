@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import sys
 from datetime import datetime
 from ib_insync import *
@@ -8,7 +9,7 @@ from utils import get_next_friday, is_trading_hours, validate_net_credit
 from options_lookup import find_contract_by_delta, is_contract_liquid
 from target_list import STOCK_CANDIDATES, INDEX_CANDIDATES
 from earnings_calendar import is_near_earnings
-from config import load_parameters, save_learned_config
+from config import DEFAULT_MODE, load_parameters
 from data_logger import ensure_db, log_trade, log_market_snapshot
 from vix_monitor import fetch_vix
 from self_tuner import tune_parameters
@@ -25,11 +26,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class AIOptionsMaster:
-    def __init__(self, host='127.0.0.1', port=7497, client_id=1):
+    def __init__(self, host='127.0.0.1', port=7497, client_id=1, mode=None):
         self.ib = IB()
         self.host = host
         self.port = port
         self.client_id = client_id
+        self.mode = mode or os.environ.get('STRATEGY_MODE', DEFAULT_MODE)
         
         # 初始加载参数
         self.refresh_config()
@@ -41,7 +43,7 @@ class AIOptionsMaster:
 
     def refresh_config(self):
         """从 config.py (含已学习参数) 加载最新配置"""
-        params = load_parameters()
+        params = load_parameters(self.mode)
         self.cc_delta_target = params['CC_DELTA_TARGET']
         self.pcs_sell_delta = params['PCS_SELL_DELTA']
         self.pcs_width = params['PCS_WIDTH']
@@ -251,8 +253,8 @@ class AIOptionsMaster:
                 if is_trading_hours():
                     # 每 6 轮 (约 1 小时) 运行一次自学习调参
                     if iteration % 6 == 0:
-                        logger.info("🧠 正在运行自学习调参...")
-                        tuned = tune_parameters()
+                        logger.info(f"🧠 正在运行自学习调参 (Mode: {self.mode})...")
+                        tuned = tune_parameters(self.mode)
                         if tuned:
                             logger.info(f"✨ 发现新优化参数: {tuned}")
                         self.refresh_config()

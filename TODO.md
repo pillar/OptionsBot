@@ -23,6 +23,7 @@
 - [x] 实现 `vix_monitor.py`：引入 VIX 波动率参考，支持环境感知策略调整。
 - [x] 实现 `self_tuner.py`：基于 SQLite 历史数据自动优化 Delta 与滚动阈值。
 - [x] 实现 `earnings_calendar.py`：通过 yfinance 获取财报日期，支持智能缓存（2年数据，30天 TTL）。
+- [x] 引入 `STRATEGY_MODES`：支持 'base' (稳健) 与 'aggressive' (高收益) 模式切换。
 
 ## Phase 5：测试与上线 [ ]
 - [ ] **Paper Trading (模拟盘):** 连续运行 48 小时，观察在波动行情下 Rolling 是否触发。

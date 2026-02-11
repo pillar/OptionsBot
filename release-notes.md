@@ -14,6 +14,12 @@
 ## 2026-02-11 (docs)
 - Updated README and CLAUDE instructions describing the configurable `target_list.py` with multi-ticker selection and the revised strategy flow.
 
+## 2026-02-11 (strategy modes & higher yield)
+- Introduced `STRATEGY_MODES` in `config.py` to allow switching between `base` (conservative) and `aggressive` (high yield) settings.
+- Aggressive mode increases `PCS_WIDTH` and tightens `CC_DELTA_TARGET` to capture more premium while allowing slightly higher daily drawdown.
+- Updated `self_tuner.py` to save/load learned parameters independently for each mode.
+- Added environment variable `STRATEGY_MODE` support to `main.py`.
+
 ## 2026-02-11 (smart earnings caching)
 - Implemented intelligent multi-date earnings caching: fetches ~2 years of earnings dates via yfinance and stores them in SQLite.
 - Smart refresh logic: only re-fetches when all cached dates have passed or after 30 days TTL, reducing API calls to "a few times per year".

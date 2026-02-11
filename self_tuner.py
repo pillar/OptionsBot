@@ -1,8 +1,9 @@
 import json
 import sqlite3
 from statistics import mean
+from typing import Optional
 
-from config import DB_PATH, DEFAULTS, LEARNED_CONFIG_PATH
+from config import DB_PATH, LEARNED_CONFIG_PATH, load_parameters, save_learned_config
 
 
 def _average_delta_for_type(cursor, trade_type):
@@ -14,7 +15,7 @@ def _average_delta_for_type(cursor, trade_type):
     return mean(rows) if rows else None
 
 
-def tune_parameters():
+def tune_parameters(mode: str = 'base') -> dict:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -24,26 +25,26 @@ def tune_parameters():
     conn.close()
 
     tuned = {}
+    base_params = load_parameters(mode)
     if covered_delta:
-        tuned['CC_DELTA_TARGET'] = round(covered_delta, 3)
+        tuned['CC_DELTA_TARGET'] = round(min(covered_delta, base_params['CC_DELTA_TARGET'] + 0.05), 3)
     if roll_delta:
         tuned['ROLL_DELTA_THRESHOLD'] = round(min(roll_delta + 0.05, 1.0), 3)
     if spread_delta:
         tuned['PCS_SELL_DELTA'] = round(spread_delta, 3)
 
     if tuned:
-        LEARNED_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with LEARNED_CONFIG_PATH.open('w') as f:
-            json.dump(tuned, f, indent=2)
+        save_learned_config(mode, tuned)
     return tuned
 
 
-def summarize():
-    tuned = {}
-    if LEARNED_CONFIG_PATH.exists():
+def summarize(mode: str = 'base') -> dict:
+    try:
         with LEARNED_CONFIG_PATH.open() as f:
             tuned = json.load(f)
-    return tuned
+        return tuned.get(mode, {})
+    except Exception:
+        return {}
 
 
 if __name__ == '__main__':
