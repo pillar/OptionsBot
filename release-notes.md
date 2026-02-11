@@ -18,7 +18,7 @@
 - Introduced `STRATEGY_MODES` in `config.py` to allow switching between `base` (conservative) and `aggressive` (high yield) settings.
 - Aggressive mode increases `PCS_WIDTH` and tightens `CC_DELTA_TARGET` to capture more premium while allowing slightly higher daily drawdown.
 - Updated `self_tuner.py` to save/load learned parameters independently for each mode.
-- Added environment variable `STRATEGY_MODE` support and a `--mode` CLI flag to `main.py` so you can override modes without touching env vars.
+- Added a `--mode` CLI flag to `main.py` so you can switch between strategy modes at launch.
 
 ## 2026-02-11 (smart earnings caching)
 - Implemented intelligent multi-date earnings caching: fetches ~2 years of earnings dates via yfinance and stores them in SQLite.

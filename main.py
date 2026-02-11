@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import logging
-import os
 import sys
 from datetime import datetime
 from ib_insync import *

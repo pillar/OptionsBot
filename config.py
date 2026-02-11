@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -38,7 +37,7 @@ def _build_mode_params(mode):
 
 
 def load_parameters(mode: str = None):
-    mode = mode or os.environ.get('STRATEGY_MODE', DEFAULT_MODE)
+    mode = mode or DEFAULT_MODE
     params = _build_mode_params(mode)
     if LEARNED_CONFIG_PATH.exists():
         try:
