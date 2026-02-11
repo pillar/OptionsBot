@@ -3,6 +3,11 @@
 ## 1. 项目目标
 构建一个全自动、高胜率的美股周内期权交易系统。可以从 `target_list.py` 中维护的自选池里选择最合适的股票（默认 GOOG/AAPL/MSFT）执行 Covered Call，也可从指数池（默认 SPX）构建 Put Credit Spread。
 
+## 1.5 策略拆分说明
+- Covered Call lane：在持有的股票上卖出 Delta<0.15 的 Call，赚取权利金并通过滚动保持低 Delta 曝光。
+- Put Credit Spread lane：在指数上做 Delta≈0.07 的卖出 + 保护价差，限损并产出现金流。
+默认将这两条线保持独立以便分别监督和风控。如果未来想做跨策略对冲，请在 `TODO.md` 或此文件中注明目标与约束。
+
 ## 2. 核心数学约束
 AI 在执行或生成代码时，必须严格遵守以下参数：
 - **Covered Call**：目标 $\Delta < 0.15$，行权日选取最近的周五。每次选标之前从 `target_list.py` 中筛出持仓足够的候选股票，再应用这个 Delta 目标。

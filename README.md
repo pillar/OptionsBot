@@ -20,6 +20,12 @@ Automated weekly options trading system that selects candidates from a configura
 - Test search logic: `pytest tests/test_search.py`
 - Run unit tests: `pytest tests/`
 
+## Strategy Comparison
+- **Covered Call lane (stock-based)**: you collect rent on held equities from `target_list.py` (default GOOG/AAPL/MSFT) by selling Delta≈0.15 calls and rolling when Delta>0.45 or DTE<1. The puts are protected by the fact you own the shares.
+- **Put Credit Spread lane (index-based)**: sells low-Delta(short) index puts and buys a protective leg 20–50 points below. It generates income with capped risk and no need to own the underlying index.
+
+These two lanes remain separate so each can be monitored, measured, and risk-managed on its own. If you ever decide to merge them into a delta-hedged combo, describe the target in `TODO.md`/`CLAUDE.md` so we can plan the integration.
+
 ## Configuring Targets
 - Customize `target_list.py` to define your own favorite stock/index pools and minimum holding thresholds; the strategy will pick whichever candidate currently satisfies the criteria.
 
