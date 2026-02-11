@@ -1,11 +1,11 @@
 # OptionsBot AGENTS 快速指南
 
 ## 项目概览
-- **目标**：构建自动化美股期权策略，围绕 GOOGL 备兑看涨 (Covered Call) 和 SPX 认沽价差 (Put Credit Spread) 执行信号、滚动与风控。
+- **目标**：构建可动态在自选池里轮动的美股期权策略，自动挑选账户中满足条件的股票（Covered Call）与预设指数（Put Credit Spread）进行交易。
 - **关键文件**：
-  - `main.py`: AIOptionsMaster 类，负责连接 ib_insync、监控持仓、执行核心策略、滚动逻辑与风险熔断。
-  - `target_list.py`: 可配置的自选池，定义了股票（及其起步股数）和指数标的。
-  - `options_lookup.py`: 提炼出的期权搜索逻辑，支持异步批量请求、Greeks 容错和提前退出。
+  - `main.py`: AIOptionsMaster 类，负责连接 ib_insync、从 `target_list.py` 筛选候选、执行 Covered Call / Spread 逻辑、Rolling 与风险熔断。
+  - `target_list.py`: 可配置的自选池，按优先级提供股票和指数，并支持最小持仓要求。
+  - `options_lookup.py`: 提炼出的期权搜索逻辑，支持异步批量请求、Greeks 容错、流动性检验与提前退出。
   - `utils.py`: 包含日期处理、交易时间检查与信用校验。
   - `tests/`: 包含针对核心逻辑的单元测试。
   - `CLAUDE.md`: 写明策略数学约束、编码规范、安全断路器等策略 guardrails，以及对 Codex 的指令说明。
@@ -26,7 +26,7 @@
 1. 启动 IB TWS/Gateway，确认 API 访问配置，端口与 clientId 匹配。
 2. 在项目根下（`OptionsBot` 目录）运行：
    - 运行单元测试：`pytest tests/`
-   - 验证连接与 Delta 寻标：`pytest test_search.py`
+   - 验证连接与 Delta 寻标（smoke test）：`pytest tests/test_search.py`
    - 主策略循环：`python main.py`
 3. 日志信息通过 `logging` 输出，重点包括：连接成功（账户）、下单/滚动动作、风险熔断触发、异常捕获。
 
