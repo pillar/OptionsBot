@@ -30,7 +30,12 @@ These two lanes remain separate so each can be monitored, measured, and risk-man
 - **`config.py`**: Central hub for all adjustable parameters. Supports **Strategy Modes**:
   - `base`: Default conservative mode (Delta≈0.15/0.07).
   - `aggressive`: Higher yield mode (Delta targets shifted towards 0.12/0.05, wider PCS widths).
-- **Strategy Switching**: Run with environment variable `STRATEGY_MODE=aggressive python main.py`.
+- **Strategy Switching**: pass `--mode` or set `STRATEGY_MODE`. Examples:
+  ```bash
+  python main.py               # base mode
+  python main.py --mode aggressive
+  STRATEGY_MODE=aggressive python main.py
+  ```
 - **`target_list.py`**: Define your favorite tickers and minimum share requirements.
 - **Smart Earnings Calendar**: The bot fetches earnings dates via `yfinance` and stores up to 2 years of future dates in SQLite. It queries the cache first and only refreshes when all cached dates have passed or after 30 days—eliminating redundant API calls.
 - **VIX Environmental Awareness**: The bot monitors VIX; it automatically reduces risk (lower Delta) or pauses entries during market panic (>30-40 VIX).

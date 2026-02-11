@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 import os
@@ -9,7 +10,7 @@ from utils import get_next_friday, is_trading_hours, validate_net_credit
 from options_lookup import find_contract_by_delta, is_contract_liquid
 from target_list import STOCK_CANDIDATES, INDEX_CANDIDATES
 from earnings_calendar import is_near_earnings
-from config import DEFAULT_MODE, load_parameters
+from config import DEFAULT_MODE, STRATEGY_MODES, load_parameters
 from data_logger import ensure_db, log_trade, log_market_snapshot
 from vix_monitor import fetch_vix
 from self_tuner import tune_parameters
@@ -272,7 +273,11 @@ class AIOptionsMaster:
                 await asyncio.sleep(60)
 
 if __name__ == "__main__":
-    bot = AIOptionsMaster()
+    parser = argparse.ArgumentParser(description="Run the OptionsBot with optional strategy mode")
+    parser.add_argument('--mode', choices=list(STRATEGY_MODES.keys()), help='Strategy mode overrides STRATEGY_MODE env var')
+    args = parser.parse_args()
+
+    bot = AIOptionsMaster(mode=args.mode)
     try:
         asyncio.run(bot.run_loop())
     except KeyboardInterrupt:
