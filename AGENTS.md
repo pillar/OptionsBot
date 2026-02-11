@@ -14,13 +14,18 @@
 ## 技术栈与运行环境
 - Python 3.11+，依赖 `ib_insync`, `asyncio`, `pandas`, `pytest`, `pytest-asyncio`, `pytz`。
 - 本地运行依赖 IB TWS 或 Gateway（端口 7497/7496），需开启 API 权限。
-- 建议安装依赖：`pip install -r requirements.txt`。
+- 建议安装依赖（推荐使用 venv）：
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -r requirements.txt
+  ```
 
 ## 建议运行流程
 1. 启动 IB TWS/Gateway，确认 API 访问配置，端口与 clientId 匹配。
 2. 在项目根下（`OptionsBot` 目录）运行：
-   - 验证连接与 Delta 寻标：`python test_search.py`
    - 运行单元测试：`pytest tests/`
+   - 验证连接与 Delta 寻标：`pytest test_search.py`
    - 主策略循环：`python main.py`
 3. 日志信息通过 `logging` 输出，重点包括：连接成功（账户）、下单/滚动动作、风险熔断触发、异常捕获。
 

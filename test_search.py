@@ -1,4 +1,5 @@
 import asyncio
+import pytest
 from ib_insync import *
 import pandas as pd
 
@@ -8,6 +9,7 @@ TARGET_INDEX = 'SPX'
 GOOG_DELTA = 0.15
 SPX_DELTA = 0.07
 
+@pytest.mark.asyncio
 async def test_option_search():
     ib = IB()
     try:

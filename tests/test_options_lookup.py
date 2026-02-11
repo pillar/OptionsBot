@@ -19,14 +19,21 @@ async def test_find_contract_by_delta_success():
     # Mock reqTickersAsync for underlying
     mock_underlying_ticker = MagicMock()
     mock_underlying_ticker.marketPrice.return_value = 155.0
+    
+    # Mock option tickers
+    t1 = MagicMock(contract=Option('GOOG', '20260220', 160.0, 'C', 'SMART'), 
+                  modelGreeks=MagicMock(delta=0.15),
+                  bid=1.0, ask=1.05)
+    t1.marketPrice.return_value = 1.025
+    
+    t2 = MagicMock(contract=Option('GOOG', '20260220', 170.0, 'C', 'SMART'), 
+                  modelGreeks=MagicMock(delta=0.05),
+                  bid=0.2, ask=0.22)
+    t2.marketPrice.return_value = 0.21
+    
     ib.reqTickersAsync = AsyncMock(side_effect=[
         [mock_underlying_ticker], # First call for underlying
-        [                         # Second call for chunks
-            MagicMock(contract=Option('GOOG', '20260220', 160.0, 'C', 'SMART'), 
-                      modelGreeks=MagicMock(delta=0.15)),
-            MagicMock(contract=Option('GOOG', '20260220', 170.0, 'C', 'SMART'), 
-                      modelGreeks=MagicMock(delta=0.05))
-        ]
+        [t1, t2]                  # Second call for chunks
     ])
     
     # Mock qualifyContractsAsync

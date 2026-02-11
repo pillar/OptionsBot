@@ -7,12 +7,18 @@ Automated weekly options trading system focusing on:
 
 ## Setup
 1. **Requirements**: Python 3.11+
-2. **Install**: `pip install -r requirements.txt`
+2. **Environment**:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
 3. **IBKR Setup**: Ensure TWS/Gateway is running with API enabled on port 7497.
 
 ## Usage
 - Run strategy: `python main.py`
-- Test search logic: `python test_search.py`
+- Test search logic: `pytest test_search.py`
+- Run unit tests: `pytest tests/`
 
 ## Safety
 - **Daily Drawdown**: 1% (Automatic Emergency Exit)
