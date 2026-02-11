@@ -1,40 +1,41 @@
-import csv
+import requests
+import logging
 from datetime import datetime, timedelta
-from pathlib import Path
+import config
 
-CALENDAR_PATH = Path(__file__).with_name('earnings_calendar.csv')
+logger = logging.getLogger(__name__)
 
+def is_near_earnings(symbol, within_days=3):
+    """
+    通过 Finnhub API 实时检查标的是否在财报窗口内。
+    """
+    params = config.load_parameters()
+    api_key = params.get('FINNHUB_API_KEY', '')
+    
+    if not api_key:
+        return False
 
-def load_calendar():
-    if not CALENDAR_PATH.exists():
-        return []
-    events = []
-    with CALENDAR_PATH.open() as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                dt = datetime.strptime(f"{row['date']} {row.get('time', '00:00')}", '%Y-%m-%d %H:%M')
-            except ValueError:
-                continue
-            events.append({
-                'symbol': row['symbol'].strip().upper(),
-                'datetime': dt
-            })
-    return events
-
-
-def upcoming_events(symbol=None, within_days=3):
-    now = datetime.now()
-    horizon = now + timedelta(days=within_days)
-    events = load_calendar()
-    matches = [e for e in events if now <= e['datetime'] <= horizon]
-    if symbol:
-        symbol = symbol.upper()
-        matches = [e for e in matches if e['symbol'] == symbol]
-    return matches
-
-
-def is_near_earnings(symbol, within_days=2):
-    symbol = symbol.upper()
-    events = upcoming_events(symbol, within_days)
-    return len(events) > 0
+    try:
+        now = datetime.now()
+        start_date = now.strftime('%Y-%m-%d')
+        end_date = (now + timedelta(days=within_days)).strftime('%Y-%m-%d')
+        
+        url = f"https://finnhub.io/api/v1/calendar/earnings?from={start_date}&to={end_date}&token={api_key}"
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code != 200:
+            return False
+            
+        data = response.json()
+        earnings_calendar = data.get('earningsCalendar', [])
+        
+        symbol_upper = symbol.upper()
+        for event in earnings_calendar:
+            if event.get('symbol', '').upper() == symbol_upper:
+                logger.info(f"⚠️ [API] 检测到 {symbol_upper} 近期财报：{event.get('date')}，跳过交易")
+                return True
+                
+        return False
+    except Exception as e:
+        logger.error(f"Finnhub API 调用异常: {e}")
+        return False

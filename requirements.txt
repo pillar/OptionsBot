@@ -4,3 +4,4 @@ asyncio
 pytest
 pytest-asyncio
 pytz
+requests

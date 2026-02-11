@@ -12,6 +12,7 @@ DEFAULTS = {
     'ROLL_DELTA_THRESHOLD': 0.45,
     'ROLL_DTE_THRESHOLD': 1,
     'MAX_DAILY_DRAWDOWN': 0.01,
+    'FINNHUB_API_KEY': '', # 在此填写你的 Finnhub 免费 API Key 以开启自动财报过滤
 }
 
 

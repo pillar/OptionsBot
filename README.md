@@ -27,8 +27,9 @@ Automated weekly options trading system that selects candidates from a configura
 These two lanes remain separate so each can be monitored, measured, and risk-managed on its own. If you ever decide to merge them into a delta-hedged combo, describe the target in `TODO.md`/`CLAUDE.md` so we can plan the integration.
 
 ## Configuration & Self-Strengthening
-- **`config.py`**: Central hub for all adjustable parameters (Delta, Rolling thresholds, Drawdown limits).
+- **`config.py`**: Central hub for all adjustable parameters (Delta, Rolling thresholds, Drawdown limits), including `FINNHUB_API_KEY` for automatic earnings filtering.
 - **`target_list.py`**: Define your favorite tickers and minimum share requirements.
+- **Finnhub Earnings API**: The bot queries Finnhub’s earnings calendar to skip Covered Calls ahead of imminent reports. Add your API key to `config.py` (see `FINNHUB_API_KEY`) so the filter runs hands-free.
 - **VIX Environmental Awareness**: The bot monitors VIX; it automatically reduces risk (lower Delta) or pauses entries during market panic (>30-40 VIX).
 - **Auto-Tuning (`self_tuner.py`)**: Every hour, the bot analyzes its execution history in SQLite and updates `learned_config.json` to optimize its mathematical targets based on real-world performance.
 - **SQLite Data Logging**: The bot automatically saves every trade, roll, and emergency exit to `strategy_data.db`. This data forms the foundation for future self-optimization and feedback loops.
