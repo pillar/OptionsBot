@@ -7,6 +7,7 @@ from ib_insync import *
 from utils import get_next_friday, is_trading_hours, validate_net_credit
 from options_lookup import find_contract_by_delta, is_contract_liquid
 from target_list import STOCK_CANDIDATES, INDEX_CANDIDATES
+from earnings_calendar import is_near_earnings
 from config import load_parameters, save_learned_config
 from data_logger import ensure_db, log_trade, log_market_snapshot
 from vix_monitor import fetch_vix
@@ -97,6 +98,10 @@ class AIOptionsMaster:
             return
 
         symbol = candidate['symbol']
+        if is_near_earnings(symbol):
+            logger.info(f"📅 {symbol} 即将财报，跳过 Covered Call")
+            return
+
         stock = Stock(symbol, 'SMART', 'USD')
         await self.ib.qualifyContractsAsync(stock)
 
