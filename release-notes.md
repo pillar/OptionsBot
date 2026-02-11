@@ -14,7 +14,7 @@
 ## 2026-02-11 (docs)
 - Updated README and CLAUDE instructions describing the configurable `target_list.py` with multi-ticker selection and the revised strategy flow.
 
-## 2026-02-11 (self-strengthening)
-- Added `config.py` to control Delta targets, roll thresholds, drawdown limits, and database path.
-- Logged every trade/roll/exit to `strategy_data.db` via `data_logger.py` for future reinforcement learning or analytics.
-- Documented the configuration layer and SQLite logging in README/AGENTS/TODO.
+## 2026-02-11 (self-learning & VIX)
+- Integrated `vix_monitor.py` to track market fear levels; bot now adjusts Delta targets or pauses entries during high-volatility/panic phases.
+- Implemented `self_tuner.py` which automatically analyzes SQLite trade history every hour to update `learned_config.json`, allowing the bot to "learn" from its own execution performance.
+- Upgraded `main.py` to be environment-aware and fully configuration-driven.

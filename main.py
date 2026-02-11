@@ -7,8 +7,10 @@ from ib_insync import *
 from utils import get_next_friday, is_trading_hours, validate_net_credit
 from options_lookup import find_contract_by_delta, is_contract_liquid
 from target_list import STOCK_CANDIDATES, INDEX_CANDIDATES
-from config import CC_DELTA_TARGET, PCS_SELL_DELTA, PCS_WIDTH, ROLL_DELTA_THRESHOLD, ROLL_DTE_THRESHOLD, MAX_DAILY_DRAWDOWN
-from data_logger import ensure_db, log_trade
+from config import load_parameters, save_learned_config
+from data_logger import ensure_db, log_trade, log_market_snapshot
+from vix_monitor import fetch_vix
+from self_tuner import tune_parameters
 
 # 配置日志 - 增加文件输出以便审计
 logging.basicConfig(
@@ -28,15 +30,24 @@ class AIOptionsMaster:
         self.port = port
         self.client_id = client_id
         
-        # 策略参数 (严格对齐 CLAUDE.md)
-        self.cc_delta_target = CC_DELTA_TARGET
-        self.pcs_sell_delta = PCS_SELL_DELTA
-        self.pcs_width = PCS_WIDTH
+        # 初始加载参数
+        self.refresh_config()
         
-        # 风控参数
-        self.max_daily_drawdown = MAX_DAILY_DRAWDOWN
+        # 运行状态
         self.initial_nav = None
         self.force_exit_flag = False
+        self.current_vix = None
+
+    def refresh_config(self):
+        """从 config.py (含已学习参数) 加载最新配置"""
+        params = load_parameters()
+        self.cc_delta_target = params['CC_DELTA_TARGET']
+        self.pcs_sell_delta = params['PCS_SELL_DELTA']
+        self.pcs_width = params['PCS_WIDTH']
+        self.roll_delta_threshold = params['ROLL_DELTA_THRESHOLD']
+        self.roll_dte_threshold = params['ROLL_DTE_THRESHOLD']
+        self.max_daily_drawdown = params['MAX_DAILY_DRAWDOWN']
+        logger.info(f"⚙️ 配置已刷新: Delta={self.cc_delta_target}, RollThresh={self.roll_delta_threshold}")
 
     def _select_stock_candidate(self):
         """从候选池中选择当前持有正股的标的"""
@@ -89,15 +100,21 @@ class AIOptionsMaster:
         stock = Stock(symbol, 'SMART', 'USD')
         await self.ib.qualifyContractsAsync(stock)
 
+        # 环境感知调参：如果 VIX 很高 (如 > 30)，我们稍微降低目标 Delta 以追求更安全
+        effective_delta = self.cc_delta_target
+        if self.current_vix and self.current_vix > 30:
+            effective_delta *= 0.8
+            logger.info(f"📉 高波动环境 (VIX={self.current_vix:.2f})，调低目标 Delta 至 {effective_delta:.3f}")
+
         qty = int(stock_pos.position / 100)
         if not opt_pos or abs(opt_pos.position) < 1:
             expiry = get_next_friday(offset_weeks=0)
-            contract = await find_contract_by_delta(self.ib, stock, expiry, self.cc_delta_target, 'C')
+            contract = await find_contract_by_delta(self.ib, stock, expiry, effective_delta, 'C')
             if contract:
                 order = MarketOrder('SELL', qty)
                 self.ib.placeOrder(contract, order)
                 logger.info(f"🚀 [OPEN] {symbol} Covered Call: {contract.localSymbol} x {qty}")
-                await log_trade("COVERED_CALL", symbol, "OPEN", qty, notes=f"Contract: {contract.localSymbol}")
+                await log_trade("COVERED_CALL", symbol, "OPEN", qty, delta=effective_delta, notes=f"Contract: {contract.localSymbol}, VIX: {self.current_vix}")
         else:
             await self.check_and_roll_call(opt_pos)
 
@@ -115,7 +132,7 @@ class AIOptionsMaster:
         dte = (expiry_dt - datetime.now()).days
 
         # 触发条件: Delta > ROLL_DELTA_THRESHOLD 或 DTE < ROLL_DTE_THRESHOLD
-        if delta > ROLL_DELTA_THRESHOLD or dte < ROLL_DTE_THRESHOLD:
+        if delta > self.roll_delta_threshold or dte < self.roll_dte_threshold:
             logger.info(f"⚠️ 触发 Rolling: {contract.localSymbol} (Delta={delta:.2f}, DTE={dte})")
             
             new_expiry = get_next_friday(offset_weeks=1)
@@ -144,6 +161,11 @@ class AIOptionsMaster:
         candidate = self._get_index_candidate()
         if not candidate:
             logger.warning("没有可用的指数候选，跳过 Spread 策略")
+            return
+
+        # 保护性检查：如果 VIX 极高 (如 > 40)，暂停开新 Spread 仓位
+        if self.current_vix and self.current_vix > 40:
+            logger.warning(f"🚨 恐慌模式 (VIX={self.current_vix:.2f})，暂停开仓 Put Credit Spread。")
             return
 
         symbol = candidate['symbol']
@@ -180,7 +202,7 @@ class AIOptionsMaster:
         spread_bag = Bag(symbol=symbol, comboLegs=legs)
         self.ib.placeOrder(spread_bag, MarketOrder('SELL', 1))
         logger.info(f"🚀 [OPEN] {symbol} Spread: Sell {sell_side.strike}P / Buy {buy_side.strike}P")
-        await log_trade("SPREAD", symbol, "OPEN", 1, notes=f"Sell {sell_side.strike}P, Buy {buy_side.strike}P")
+        await log_trade("SPREAD", symbol, "OPEN", 1, delta=self.pcs_sell_delta, notes=f"Sell {sell_side.strike}P, Buy {buy_side.strike}P, VIX: {self.current_vix}")
 
     # --- 风控 ---
     async def risk_monitor(self):
@@ -211,15 +233,32 @@ class AIOptionsMaster:
     async def run_loop(self):
         await ensure_db()
         await self.connect()
+        
+        iteration = 0
         while True:
             try:
+                # 每轮刷新 VIX 状态
+                self.current_vix = await fetch_vix(self.ib)
+                if self.current_vix:
+                    await log_market_snapshot('VIX', self.current_vix)
+                    logger.info(f"📊 当前 VIX: {self.current_vix:.2f}")
+
                 if is_trading_hours():
+                    # 每 6 轮 (约 1 小时) 运行一次自学习调参
+                    if iteration % 6 == 0:
+                        logger.info("🧠 正在运行自学习调参...")
+                        tuned = tune_parameters()
+                        if tuned:
+                            logger.info(f"✨ 发现新优化参数: {tuned}")
+                        self.refresh_config()
+
                     await self.risk_monitor()
                     await self.manage_covered_calls()
                     await self.manage_index_spreads()
                 else:
                     logger.info("非交易时段，休眠中...")
                 
+                iteration += 1
                 await asyncio.sleep(600) # 10分钟/轮
             except Exception as e:
                 logger.error(f"异常: {e}")

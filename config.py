@@ -1,12 +1,33 @@
+import json
 from pathlib import Path
 
-# Adjustable strategy parameters (edit these to tune the behavior)
-CC_DELTA_TARGET = 0.15
-PCS_SELL_DELTA = 0.07
-PCS_WIDTH = 30  # Strike spread width in dollars
-ROLL_DELTA_THRESHOLD = 0.45
-ROLL_DTE_THRESHOLD = 1
-MAX_DAILY_DRAWDOWN = 0.01  # 1% daily drawdown limit
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / 'strategy_data.db'
+LEARNED_CONFIG_PATH = BASE_DIR / 'learned_config.json'
 
-# Database path for logging executions
-DB_PATH = Path(__file__).resolve().parent / 'strategy_data.db'
+DEFAULTS = {
+    'CC_DELTA_TARGET': 0.15,
+    'PCS_SELL_DELTA': 0.07,
+    'PCS_WIDTH': 30,
+    'ROLL_DELTA_THRESHOLD': 0.45,
+    'ROLL_DTE_THRESHOLD': 1,
+    'MAX_DAILY_DRAWDOWN': 0.01,
+}
+
+
+def load_parameters():
+    config = DEFAULTS.copy()
+    if LEARNED_CONFIG_PATH.exists():
+        try:
+            with LEARNED_CONFIG_PATH.open('r') as f:
+                learned = json.load(f)
+            config.update({k: v for k, v in learned.items() if k in config})
+        except Exception:
+            pass
+    return config
+
+
+def save_learned_config(params: dict):
+    LEARNED_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with LEARNED_CONFIG_PATH.open('w') as f:
+        json.dump(params, f, indent=2)
