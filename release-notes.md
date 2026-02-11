@@ -13,3 +13,8 @@
 
 ## 2026-02-11 (docs)
 - Updated README and CLAUDE instructions describing the configurable `target_list.py` with multi-ticker selection and the revised strategy flow.
+
+## 2026-02-11 (self-strengthening)
+- Added `config.py` to control Delta targets, roll thresholds, drawdown limits, and database path.
+- Logged every trade/roll/exit to `strategy_data.db` via `data_logger.py` for future reinforcement learning or analytics.
+- Documented the configuration layer and SQLite logging in README/AGENTS/TODO.
