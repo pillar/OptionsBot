@@ -19,6 +19,7 @@
 ## Phase 4：风控与监控 [x]
 - [x] 编写 `RiskMonitor`：基于 Net Liquidation 计算实时回撤，支持 1% 阈值熔断。
 - [x] 实现 `EmergencyExit`：触发熔断后一键撤单并平掉所有期权空头。
+- [x] 引入 `config.py` 与 `data_logger.py`：实现参数集中化与交易行为数据库持久化。
 
 ## Phase 5：测试与上线 [ ]
 - [ ] **Paper Trading (模拟盘):** 连续运行 48 小时，观察在波动行情下 Rolling 是否触发。

@@ -7,6 +7,8 @@ from ib_insync import *
 from utils import get_next_friday, is_trading_hours, validate_net_credit
 from options_lookup import find_contract_by_delta, is_contract_liquid
 from target_list import STOCK_CANDIDATES, INDEX_CANDIDATES
+from config import CC_DELTA_TARGET, PCS_SELL_DELTA, PCS_WIDTH, ROLL_DELTA_THRESHOLD, ROLL_DTE_THRESHOLD, MAX_DAILY_DRAWDOWN
+from data_logger import ensure_db, log_trade
 
 # 配置日志 - 增加文件输出以便审计
 logging.basicConfig(
@@ -27,12 +29,12 @@ class AIOptionsMaster:
         self.client_id = client_id
         
         # 策略参数 (严格对齐 CLAUDE.md)
-        self.cc_delta_target = 0.15
-        self.pcs_sell_delta = 0.07
-        self.pcs_width = 30 # 20-50 点间隔
+        self.cc_delta_target = CC_DELTA_TARGET
+        self.pcs_sell_delta = PCS_SELL_DELTA
+        self.pcs_width = PCS_WIDTH
         
         # 风控参数
-        self.max_daily_drawdown = 0.01 # 1% 熔断
+        self.max_daily_drawdown = MAX_DAILY_DRAWDOWN
         self.initial_nav = None
         self.force_exit_flag = False
 
@@ -95,6 +97,7 @@ class AIOptionsMaster:
                 order = MarketOrder('SELL', qty)
                 self.ib.placeOrder(contract, order)
                 logger.info(f"🚀 [OPEN] {symbol} Covered Call: {contract.localSymbol} x {qty}")
+                await log_trade("COVERED_CALL", symbol, "OPEN", qty, notes=f"Contract: {contract.localSymbol}")
         else:
             await self.check_and_roll_call(opt_pos)
 
@@ -111,8 +114,8 @@ class AIOptionsMaster:
         expiry_dt = datetime.strptime(contract.lastTradeDateOrContractMonth, '%Y%m%d')
         dte = (expiry_dt - datetime.now()).days
 
-        # 触发条件: Delta > 0.45 或 DTE < 1
-        if delta > 0.45 or dte < 1:
+        # 触发条件: Delta > ROLL_DELTA_THRESHOLD 或 DTE < ROLL_DTE_THRESHOLD
+        if delta > ROLL_DELTA_THRESHOLD or dte < ROLL_DTE_THRESHOLD:
             logger.info(f"⚠️ 触发 Rolling: {contract.localSymbol} (Delta={delta:.2f}, DTE={dte})")
             
             new_expiry = get_next_friday(offset_weeks=1)
@@ -131,6 +134,7 @@ class AIOptionsMaster:
                     roll_bag = Bag(symbol=symbol, comboLegs=[buy_leg, sell_leg])
                     self.ib.placeOrder(roll_bag, MarketOrder('SELL', abs(current_pos.position)))
                     logger.info(f"✅ [ROLL] {contract.localSymbol} -> {new_contract.localSymbol}")
+                    await log_trade("ROLLING", symbol, "ROLL", abs(current_pos.position), delta=delta, notes=f"From {contract.localSymbol} to {new_contract.localSymbol}")
                 else:
                     logger.error("❌ Rolling 失败: Net Credit 验证未通过。")
 
@@ -176,6 +180,7 @@ class AIOptionsMaster:
         spread_bag = Bag(symbol=symbol, comboLegs=legs)
         self.ib.placeOrder(spread_bag, MarketOrder('SELL', 1))
         logger.info(f"🚀 [OPEN] {symbol} Spread: Sell {sell_side.strike}P / Buy {buy_side.strike}P")
+        await log_trade("SPREAD", symbol, "OPEN", 1, notes=f"Sell {sell_side.strike}P, Buy {buy_side.strike}P")
 
     # --- 风控 ---
     async def risk_monitor(self):
@@ -201,8 +206,10 @@ class AIOptionsMaster:
                 order = MarketOrder(action, abs(p.position))
                 self.ib.placeOrder(p.contract, order)
                 logger.warning(f"📢 [EXIT] 紧急平仓期权: {p.contract.localSymbol}")
+                await log_trade("EMERGENCY", p.contract.symbol, "EXIT", abs(p.position), notes=f"Emergency liquidation of {p.contract.localSymbol}")
 
     async def run_loop(self):
+        await ensure_db()
         await self.connect()
         while True:
             try:

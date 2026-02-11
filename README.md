@@ -26,8 +26,10 @@ Automated weekly options trading system that selects candidates from a configura
 
 These two lanes remain separate so each can be monitored, measured, and risk-managed on its own. If you ever decide to merge them into a delta-hedged combo, describe the target in `TODO.md`/`CLAUDE.md` so we can plan the integration.
 
-## Configuring Targets
-- Customize `target_list.py` to define your own favorite stock/index pools and minimum holding thresholds; the strategy will pick whichever candidate currently satisfies the criteria.
+## Configuration & Self-Strengthening
+- **`config.py`**: Central hub for all adjustable parameters (Delta, Rolling thresholds, Drawdown limits).
+- **`target_list.py`**: Define your favorite tickers and minimum share requirements.
+- **SQLite Data Logging**: The bot automatically saves every trade, roll, and emergency exit to `strategy_data.db`. This data forms the foundation for future self-optimization and feedback loops.
 
 ## Safety
 - **Daily Drawdown**: 1% (Automatic Emergency Exit)
