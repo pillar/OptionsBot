@@ -2,44 +2,33 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 
-import requests
-import config
+import yfinance as yf
 from data_logger import cache_earnings, get_cached_earnings
 
 logger = logging.getLogger(__name__)
 CACHE_TTL_HOURS = 24
 
 
-async def _fetch_earnings_from_api(symbol, within_days):
-    params = config.load_parameters()
-    api_key = params.get('FINNHUB_API_KEY', '')
-    if not api_key:
-        return None
+async def _fetch_earnings_from_yfinance(symbol):
+    symbol = symbol.upper()
 
-    now = datetime.now()
-    start_date = now.strftime('%Y-%m-%d')
-    end_date = (now + timedelta(days=max(within_days, 30))).strftime('%Y-%m-%d')
-    
-    url = (
-        f"https://finnhub.io/api/v1/calendar/earnings"
-        f"?from={start_date}&to={end_date}&token={api_key}"
-    )
-    try:
-        response = await asyncio.to_thread(requests.get, url, timeout=10)
-        if response.status_code != 200:
+    def _fetch():
+        ticker = yf.Ticker(symbol)
+        try:
+            df = ticker.get_earnings_dates(limit=1)
+        except Exception as exc:
+            logger.error(f"yfinance earnings fetch failed for {symbol}: {exc}")
             return None
-        data = response.json()
-        events = data.get('earningsCalendar', [])
-        
-        for event in events:
-            ev_symbol = event.get('symbol', '').upper()
-            if ev_symbol == symbol.upper():
-                return event.get('date')
-        
-        return None
-    except Exception as exc:
-        logger.error(f"Finnhub API 调用异常: {exc}")
-        return None
+
+        if getattr(df, 'empty', False):
+            return None
+
+        idx = df.index[0]
+        if hasattr(idx, 'strftime'):
+            return idx.strftime('%Y-%m-%d')
+        return str(idx)
+
+    return await asyncio.to_thread(_fetch)
 
 
 async def is_near_earnings(symbol, within_days=3):
@@ -53,16 +42,17 @@ async def is_near_earnings(symbol, within_days=3):
             earnings_dt = datetime.strptime(earnings_date, '%Y-%m-%d')
             now = datetime.now()
             if now <= earnings_dt <= now + timedelta(days=within_days):
+                logger.info(f"📅 使用缓存：{symbol} 近期财报 {earnings_date}")
                 return True
             return False
     except Exception:
-        pass
+        logger.warning(f"读取财报缓存失败: {symbol}")
 
-    earnings_date = await _fetch_earnings_from_api(symbol, within_days)
+    earnings_date = await _fetch_earnings_from_yfinance(symbol)
     try:
         await cache_earnings(symbol, earnings_date)
     except Exception:
-        pass
+        logger.warning("写入财报缓存失败")
 
     if not earnings_date:
         return False
@@ -71,6 +61,8 @@ async def is_near_earnings(symbol, within_days=3):
         earnings_dt = datetime.strptime(earnings_date, '%Y-%m-%d')
         now = datetime.now()
         within = now <= earnings_dt <= now + timedelta(days=within_days)
+        if within:
+            logger.info(f"⚠️ [Yahoo] 检测到 {symbol} 近期财报：{earnings_date}")
         return within
     except ValueError:
         return False
