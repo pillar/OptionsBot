@@ -5,3 +5,8 @@
 - Added `options_lookup` module, `is_contract_liquid` guard, unit tests, and smoke test using the shared lookup.
 - Configured pytest + venv workflow, `.gitignore`, and released project to GitHub at `pillar/OptionsBot`.
 - Latest test run: `pytest -v` (all 4 tests passed, warnings only around asyncio deprecation).
+
+## 2026-02-11 (later)
+- Introduced `target_list.py` to hold configurable stock/index pools so the bot can rotate through whichever tickers you currently hold.
+- `main.py` now selects candidates from the pool, applies the shared `options_lookup` logic, and runs index spreads/covered calls for those dynamically instead of hardcoding GOOG/SPX.
+- Already documented the new config layer across README/AGENTS/TODO and pushed everything to GitHub.
