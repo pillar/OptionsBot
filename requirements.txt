@@ -1,0 +1,6 @@
+ib_insync
+pandas
+asyncio
+pytest
+pytest-asyncio
+pytz
