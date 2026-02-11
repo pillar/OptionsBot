@@ -14,7 +14,13 @@
 ## 2026-02-11 (docs)
 - Updated README and CLAUDE instructions describing the configurable `target_list.py` with multi-ticker selection and the revised strategy flow.
 
+## 2026-02-11 (smart earnings caching)
+- Implemented intelligent multi-date earnings caching: fetches ~2 years of earnings dates via yfinance and stores them in SQLite.
+- Smart refresh logic: only re-fetches when all cached dates have passed or after 30 days TTL, reducing API calls to "a few times per year".
+- Removed Finnhub dependency; no API key required for earnings filtering.
+
 ## 2026-02-11 (self-learning & VIX)
 - Integrated `vix_monitor.py` to track market fear levels; bot now adjusts Delta targets or pauses entries during high-volatility/panic phases.
 - Implemented `self_tuner.py` which automatically analyzes SQLite trade history every hour to update `learned_config.json`, allowing the bot to "learn" from its own execution performance.
 - Upgraded `main.py` to be environment-aware and fully configuration-driven.
+

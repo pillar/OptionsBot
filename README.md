@@ -22,14 +22,14 @@ Automated weekly options trading system that selects candidates from a configura
 
 ## Strategy Comparison
 - **Covered Call lane (stock-based)**: you collect rent on held equities from `target_list.py` (default GOOG/AAPL/MSFT) by selling Delta≈0.15 calls and rolling when Delta>0.45 or DTE<1. The puts are protected by the fact you own the shares.
-- **Put Credit Spread lane (index-based)**: sells low-Delta(short) index puts and buys a protective leg 20–50 points below. It generates income with capped risk and no need to own the underlying index.
+- **Put Credit Spread lane (index-based)**: sells low-Delta(short) index puts and buys a protective leg 20-50 points below. It generates income with capped risk and no need to own the underlying index.
 
 These two lanes remain separate so each can be monitored, measured, and risk-managed on its own. If you ever decide to merge them into a delta-hedged combo, describe the target in `TODO.md`/`CLAUDE.md` so we can plan the integration.
 
 ## Configuration & Self-Strengthening
-- **`config.py`**: Central hub for all adjustable parameters (Delta, Rolling thresholds, Drawdown limits), including `FINNHUB_API_KEY` for automatic earnings filtering.
+- **`config.py`**: Central hub for all adjustable parameters (Delta, Rolling thresholds, Drawdown limits).
 - **`target_list.py`**: Define your favorite tickers and minimum share requirements.
-- **Finnhub Earnings API**: The bot queries Finnhub’s earnings calendar to skip Covered Calls ahead of imminent reports. Add your API key to `config.py` (see `FINNHUB_API_KEY`) so the filter runs hands-free.
+- **Smart Earnings Calendar**: The bot fetches earnings dates via `yfinance` and stores up to 2 years of future dates in SQLite. It queries the cache first and only refreshes when all cached dates have passed or after 30 days—eliminating redundant API calls.
 - **VIX Environmental Awareness**: The bot monitors VIX; it automatically reduces risk (lower Delta) or pauses entries during market panic (>30-40 VIX).
 - **Auto-Tuning (`self_tuner.py`)**: Every hour, the bot analyzes its execution history in SQLite and updates `learned_config.json` to optimize its mathematical targets based on real-world performance.
 - **SQLite Data Logging**: The bot automatically saves every trade, roll, and emergency exit to `strategy_data.db`. This data forms the foundation for future self-optimization and feedback loops.
