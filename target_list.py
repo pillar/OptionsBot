@@ -11,4 +11,6 @@ STOCK_CANDIDATES = [
 # 指数候选池：策略会从中选择标的进行 Spread 操作。
 INDEX_CANDIDATES = [
     {"symbol": "SPX", "exchange": "CBOE"},
+    {"symbol": "QQQ", "exchange": "NASDAQ"},
+    {"symbol": "SPY", "exchange": "SMART"},
 ]
