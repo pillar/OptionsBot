@@ -98,7 +98,7 @@ class AIOptionsMaster:
             return
 
         symbol = candidate['symbol']
-        if is_near_earnings(symbol):
+        if await is_near_earnings(symbol):
             logger.info(f"📅 {symbol} 即将财报，跳过 Covered Call")
             return
 
