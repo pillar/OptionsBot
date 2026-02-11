@@ -24,3 +24,8 @@ Automated weekly options trading system focusing on:
 - **Daily Drawdown**: 1% (Automatic Emergency Exit)
 - **Net Credit**: All rolls must be profitable after costs.
 - **Trading Hours**: Only runs during RTH (9:30-16:00 EST).
+
+## Testing & Documentation
+- **Unit tests**: `pytest tests/` (passes after ensuring `.venv` is activated). Current suite covers `options_lookup` helpers and `test_search` smoke flow.
+- **Smoke test**: `pytest test_search.py` (leverages the shared `options_lookup.find_contract_by_delta` + `is_contract_liquid`).
+- **Release notes**: See `release-notes.md` for an episodic history of major changes.
