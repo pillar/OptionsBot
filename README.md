@@ -1,9 +1,9 @@
 # OptionsBot - Professional AI Options Trader
 
 ## Overview
-Automated weekly options trading system focusing on:
-1. **GOOG Covered Call**: Rent collection with auto-rolling.
-2. **SPX Put Credit Spread**: Low-delta probability income.
+Automated weekly options trading system that selects candidates from a configurable stock/index pool:
+1. **Covered Call**: rent collection with auto-rolling on held equities (default pool includes GOOG/AAPL/MSFT).
+2. **Put Credit Spread**: builds low-delta spreads using the hierarchy in `target_list.py` (default includes SPX).
 
 ## Setup
 1. **Requirements**: Python 3.11+

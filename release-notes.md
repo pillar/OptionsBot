@@ -10,3 +10,6 @@
 - Introduced `target_list.py` to hold configurable stock/index pools so the bot can rotate through whichever tickers you currently hold.
 - `main.py` now selects candidates from the pool, applies the shared `options_lookup` logic, and runs index spreads/covered calls for those dynamically instead of hardcoding GOOG/SPX.
 - Already documented the new config layer across README/AGENTS/TODO and pushed everything to GitHub.
+
+## 2026-02-11 (docs)
+- Updated README and CLAUDE instructions describing the configurable `target_list.py` with multi-ticker selection and the revised strategy flow.

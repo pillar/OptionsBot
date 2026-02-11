@@ -1,12 +1,12 @@
 # AI Options Trader: 指令与规范 (claude.md)
 
 ## 1. 项目目标
-构建一个全自动、高胜率的美股周内期权交易系统。主要操作标的为 Google (GOOGL) 的备兑看涨期权 (Covered Call) 和 SPX (标普500指数) 的认沽价差 (Put Credit Spread)。
+构建一个全自动、高胜率的美股周内期权交易系统。可以从 `target_list.py` 中维护的自选池里选择最合适的股票（默认 GOOG/AAPL/MSFT）执行 Covered Call，也可从指数池（默认 SPX）构建 Put Credit Spread。
 
 ## 2. 核心数学约束
 AI 在执行或生成代码时，必须严格遵守以下参数：
-- **Covered Call (GOOGL):** 目标 $\Delta < 0.15$，行权日选取最近的周五。
-- **Credit Spread (SPX):** 卖出端 $\Delta \approx 0.07$，买入端（保险）与卖出端间隔 20-50 点。
+- **Covered Call**：目标 $\Delta < 0.15$，行权日选取最近的周五。每次选标之前从 `target_list.py` 中筛出持仓足够的候选股票，再应用这个 Delta 目标。
+- **Credit Spread**：卖出端 $\Delta \approx 0.07$，买入端（保险）与卖出端间隔 20-50 点。指数标的从 `target_list.py` 的指数池中依次尝试。
 - **Rolling 触发:** 当空头合约 $\Delta > 0.45$ 或 DTE (到期天数) < 1 时强制执行滚动。
 - **Net Credit 验证:** 任何滚动操作必须保证 $New\_Credit - Old\_Cost > Commission + Slippage$。
 
