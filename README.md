@@ -17,7 +17,7 @@ Automated weekly options trading system focusing on:
 
 ## Usage
 - Run strategy: `python main.py`
-- Test search logic: `pytest test_search.py`
+- Test search logic: `pytest tests/test_search.py`
 - Run unit tests: `pytest tests/`
 
 ## Safety
@@ -27,5 +27,5 @@ Automated weekly options trading system focusing on:
 
 ## Testing & Documentation
 - **Unit tests**: `pytest tests/` (passes after ensuring `.venv` is activated). Current suite covers `options_lookup` helpers and `test_search` smoke flow.
-- **Smoke test**: `pytest test_search.py` (leverages the shared `options_lookup.find_contract_by_delta` + `is_contract_liquid`).
+- **Smoke test**: `pytest tests/test_search.py` (leverages the shared `options_lookup.find_contract_by_delta` + `is_contract_liquid`).
 - **Release notes**: See `release-notes.md` for an episodic history of major changes.
