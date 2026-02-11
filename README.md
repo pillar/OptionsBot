@@ -35,6 +35,7 @@ These two lanes remain separate so each can be monitored, measured, and risk-man
   python main.py               # base mode
   python main.py --mode aggressive
   ```
+- **Convenience Script**: run `./run-aggressive.sh` after activating `.venv` to launch the aggressive mode with one command.
 - **`target_list.py`**: Define your favorite tickers and minimum share requirements.
 - **Smart Earnings Calendar**: The bot fetches earnings dates via `yfinance` and stores up to 2 years of future dates in SQLite. It queries the cache first and only refreshes when all cached dates have passed or after 30 days—eliminating redundant API calls.
 - **VIX Environmental Awareness**: The bot monitors VIX; it automatically reduces risk (lower Delta) or pauses entries during market panic (>30-40 VIX).
