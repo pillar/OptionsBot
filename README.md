@@ -29,6 +29,8 @@ These two lanes remain separate so each can be monitored, measured, and risk-man
 ## Configuration & Self-Strengthening
 - **`config.py`**: Central hub for all adjustable parameters (Delta, Rolling thresholds, Drawdown limits).
 - **`target_list.py`**: Define your favorite tickers and minimum share requirements.
+- **VIX Environmental Awareness**: The bot monitors VIX; it automatically reduces risk (lower Delta) or pauses entries during market panic (>30-40 VIX).
+- **Auto-Tuning (`self_tuner.py`)**: Every hour, the bot analyzes its execution history in SQLite and updates `learned_config.json` to optimize its mathematical targets based on real-world performance.
 - **SQLite Data Logging**: The bot automatically saves every trade, roll, and emergency exit to `strategy_data.db`. This data forms the foundation for future self-optimization and feedback loops.
 
 ## Safety
