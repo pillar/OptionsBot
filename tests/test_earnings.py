@@ -14,23 +14,29 @@ class DummyDF:
 
 @pytest.mark.asyncio
 async def test_is_near_earnings_with_cache_hit():
+    # 模拟数据库缓存命中，包含多个日期
+    d1 = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+    d2 = (datetime.now() + timedelta(days=90)).strftime('%Y-%m-%d')
     mock_cache = {
-        "earnings_date": (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
-        "fetched_at": datetime.utcnow().isoformat()
+        "earnings_dates": f"{d1},{d2}",
+        "fetched_at": datetime.now().isoformat()
     }
     with patch("earnings_calendar.get_cached_earnings", return_value=mock_cache):
         assert await is_near_earnings("TSLA") is True
 
 @pytest.mark.asyncio
 async def test_is_near_earnings_api_fallback_and_cache(monkeypatch):
-    mock_date = pd.Timestamp(datetime.now() + timedelta(days=1))
-    df = DummyDF([mock_date])
+    # 模拟缓存失效，API 返回两个日期
+    t1 = pd.Timestamp(datetime.now() + timedelta(days=2))
+    t2 = pd.Timestamp(datetime.now() + timedelta(days=92))
+    df = DummyDF([t1, t2])
 
-    def fake_cache_earnings(symbol, earnings_date):
-        assert earnings_date == mock_date.strftime('%Y-%m-%d')
+    def fake_cache_earnings(symbol, dates_str):
+        expected = f"{t1.strftime('%Y-%m-%d')},{t2.strftime('%Y-%m-%d')}"
+        assert dates_str == expected
 
     class DummyTicker:
-        def get_earnings_dates(self, limit=1):
+        def get_earnings_dates(self, limit=8):
             return df
 
     monkeypatch.setattr("earnings_calendar.yf.Ticker", lambda symbol: DummyTicker())
@@ -42,7 +48,7 @@ async def test_is_near_earnings_api_fallback_and_cache(monkeypatch):
 @pytest.mark.asyncio
 async def test_is_near_earnings_no_cache_and_empty():
     class DummyTicker:
-        def get_earnings_dates(self, limit=1):
+        def get_earnings_dates(self, limit=8):
             return DummyDF([])
 
     with patch("earnings_calendar.yf.Ticker", lambda symbol: DummyTicker()):

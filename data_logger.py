@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
 EARNINGS_CACHE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS earnings_cache (
     symbol TEXT PRIMARY KEY,
-    earnings_date TEXT,
+    earnings_dates TEXT,
     fetched_at TEXT NOT NULL
 )
 """
@@ -85,11 +85,11 @@ def _log_market_sync(symbol, value, notes):
     conn.close()
 
 
-def _get_cached_earnings_sync(symbol, max_age_hours):
+def _get_cached_earnings_sync(symbol, max_age_days):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT earnings_date, fetched_at FROM earnings_cache WHERE symbol = ?",
+        "SELECT earnings_dates, fetched_at FROM earnings_cache WHERE symbol = ?",
         (symbol.upper(),)
     )
     row = cursor.fetchone()
@@ -99,23 +99,23 @@ def _get_cached_earnings_sync(symbol, max_age_hours):
         return None
 
     fetched = datetime.fromisoformat(row[1])
-    if datetime.utcnow() - fetched > timedelta(hours=max_age_hours):
-        return None
+    # 如果缓存没过期（默认30天），就直接用
+    if datetime.utcnow() - fetched < timedelta(days=max_age_days):
+        return {
+            'earnings_dates': row[0],
+            'fetched_at': row[1]
+        }
+    return None
 
-    return {
-        'earnings_date': row[0],
-        'fetched_at': row[1]
-    }
 
-
-def _cache_earnings_sync(symbol, earnings_date):
+def _cache_earnings_sync(symbol, earnings_dates):
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
-        "INSERT INTO earnings_cache (symbol, earnings_date, fetched_at) VALUES (?, ?, ?) "
-        "ON CONFLICT(symbol) DO UPDATE SET earnings_date=excluded.earnings_date, fetched_at=excluded.fetched_at",
+        "INSERT INTO earnings_cache (symbol, earnings_dates, fetched_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(symbol) DO UPDATE SET earnings_dates=excluded.earnings_dates, fetched_at=excluded.fetched_at",
         (
             symbol.upper(),
-            earnings_date,
+            earnings_dates,
             datetime.utcnow().isoformat()
         )
     )
@@ -135,9 +135,9 @@ async def log_market_snapshot(symbol, value, notes=None):
     await asyncio.to_thread(_log_market_sync, symbol, value, notes)
 
 
-async def get_cached_earnings(symbol, max_age_hours=6):
-    return await asyncio.to_thread(_get_cached_earnings_sync, symbol, max_age_hours)
+async def get_cached_earnings(symbol, max_age_days=30):
+    return await asyncio.to_thread(_get_cached_earnings_sync, symbol, max_age_days)
 
 
-async def cache_earnings(symbol, earnings_date):
-    await asyncio.to_thread(_cache_earnings_sync, symbol, earnings_date)
+async def cache_earnings(symbol, earnings_dates):
+    await asyncio.to_thread(_cache_earnings_sync, symbol, earnings_dates)
